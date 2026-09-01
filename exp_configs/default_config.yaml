@@ -1,0 +1,85 @@
+# Model arguments
+max_seq_len: 1024 # default max sequence length
+n_layers: 8       # Number of transformer layers
+d_model: 1024     # Dimensionality of the model
+d_ff: 2816        # Dimensionality of the feed-forward layer (around 2.75x d_model)
+n_heads: 16       # Number of attention heads
+n_q_heads: null   # Number of attention heads
+n_kv_heads: null  # Number of attention heads
+d_head: null      # Attention head dim. If None, d_model // n_heads
+
+# Training arguments
+init_scheme: "gpt2"        # Weight init scheme. "gpt2": N(0, 0.02) everywhere, with the residual-stream output projections (attn.proj, mlp.proj) damped to std 0.02/sqrt(2 * total_unrolled_depth). "pytorch": default pytorch init
+micro_batch_size: 32       # Micro batch size
+global_batch_size: 256     # Total sequences per optimizer step (across all ranks)
+save_every_batches: 200    # Save a model checkpoint every this many GLOBAL batches
+custom_lr_sched: null      # Specifies a piecewise-linear lr schedule, e.g. '[[0.0, 1.0], [0.9, 1.0], [1.0, 0.1]]' where for each point [x, y], x and y are percentages of the maximum number of training steps and the maximum learning rate respectively. If set to null, uses a standard linear warmup/cosine decay schedule instead.
+learning_rate: 0.0004      # (maximum) learning rate
+warmup_ratio: 0.1          # Percentage of the training steps that should be used for linear warmup
+warmup_iters: null         # Explicit number of linear warmup steps. Has priority over warmup_ratio
+max_grad_norm: null        # If not null, clips the gradient norm to this value
+
+# Optimizer arguments
+weight_decay: 0.1 # Relative weight decay
+beta1: 0.9        # AdamW beta1
+beta2: 0.95       # AdamW beta2
+
+# Loop arguments
+looping_strategy: "cycle" # Looping strategy. Should be set to "cycle" (1-2-1-2) or "sequence" (1-1-2-2). Support for the "sequence" strategy is only rudimentary.
+num_loops: ???            # Number of times to iterate over the looped layers
+first_recur_layer: 2      # First layer to start looping from (0-based)
+last_recur_layer: 5       # Last layer to loop (inclusive) (0-based)
+
+# LoRA arguments
+lora_rank: null       # If not null, uses LoRA with this rank for MLP layer weights
+lora_attn_rank: null  # If not null, uses LoRA with this rank for attention layer weights
+lora_alpha: null      # Scalar for MLP layer LoRA
+lora_attn_alpha: null # Scalar for Attention layer LoRA
+
+# HC arguments
+n_res_streams: null              # Number of hyper-connection residual streams. If null, disables hyper-connections
+mix_rs_after_loops: False        # Whether to project to/from the hyper residual stream after every loop.
+mix_rs_after_layers: True        # Whether to project to/from the hyper residual stream after every layer.
+mix_rs_every_l_layers: null      # Project to/from the hyper residual stream every l layers.
+rs_mixing_strat: "identity"      # Must be in ["cayley", "sinkhorn", "identity", "linear", "diagonal_gate", "stream_indep_gate"]
+premap_mixing_strat: "default"   # Must be in ["default", "linear"]
+postmap_mixing_strat: "default"  # Must be in ["default", "linear"]
+duplicate_init_res_proj: False   # Whether to expand the begin block to the middle (hyper-connected) block by just duplicating the hidden state
+init_res_proj_rank: null         # If not null, expand the begin block to the middle (hyper-connected) block using a low-rank linear layer of this rank
+average_fin_res_proj: False      # Whether to reduce the middle (hyper-connected) block to the end block by just averaging across the parallel residual streams
+fin_res_proj_rank: null          # If not null, reduce the middle (hyper-connected) block to the end block using a low-rank linear layer of this rank
+add_premap_pos_embeds: False     # Add depthwise (learned) position embeddings to the premap outputs
+add_postmap_pos_embeds: False    # Add depthwise (learned) position embeddings to the postmap inputs
+use_mhc: False                   # Whether to use the original mHC architecture. Reuses some of the above parameters.
+
+# Misc arguments
+seed: 42                              # Random seed
+tok_path: "meta-llama/Llama-2-7b-hf"  # Tokenizer path
+max_num_checkpoints: null             # If not null, specifies the max number of checkpoints to keep in the save directory (and deletes older checkpoints)
+debug: False                          # Debugging flag
+dataset_name: "fineweb-edu"           # "fineweb-edu" or "slimpajama"
+use_locally_cached_dataset: False     # If True, uses a locally cached copy of the dataset (downloads it the first time it is needed)
+save_dataset_state: False             # Save/restore HF dataset iterator state in checkpoints (fast resume, but shuffled order not exactly reproduced)
+max_train_tokens: null                # Total training tokens. global_steps = max_train_tokens // (global_batch_size * max_seq_len)
+max_val_tokens: null                  # Number of validation tokens. val_steps = max_val_tokens // (micro_batch_size * max_seq_len)
+save_dir: "./checkpoints"             # Model checkpoints will be saved to "${save_dir}/${run_id}/"
+
+# Eval arguments
+lm_eval_tasks: null         # e.g. "hellaswag,arc_easy,arc_challenge"
+lm_eval_num_fewshot: 0      # Number of fewshot examples to use for lm_eval tasks
+lm_eval_limit: null         # Limit examples per lm_eval task (for debugging)
+lm_eval_batch_size: 1
+eval_out_file_path: null    # If set, prints the eval results to this file in addition to the standard output
+eval_checkpoint_path: null  # If set, evaluate this specific checkpoint instead of the latest in ${save_dir}/${run_id}
+
+# GPTQ quantization arguments
+gptq_bits: 4               # Quantization bit width
+gptq_group_size: 128       # Group size for group quantization (-1 for per-channel)
+gptq_n_batches: 128        # Number of calibration batches
+gptq_output_dir: null      # Output directory for quantized model (default: <save_dir>/<run_id>/quantized)
+gptq_skip_hc: False        # Skip quantizing hyperconnection weights (init/fin_res_proj, pre/res/post_proj, mhc_*)
+
+# wandb parameters
+wandb_proj_name: "hyperloop-transformers" # Wandb project to log training runs to
+exp_name: ???                             # Wandb experiment name
+run_id: ???                               # Wandb experiment ID
